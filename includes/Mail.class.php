@@ -46,11 +46,6 @@ class Mail
 	{
 		$return_emails = array();
 
-		/* Create email attachments directory if not exists */
-		if (!file_exists(F_EMAIL_ATTACHMENTS)) {
-			mkdir(F_EMAIL_ATTACHMENTS, 0777, true);
-		}
-
 		/* try to connect */
 		$inbox = imap_open($this->hostname, $this->username, $this->password) or die('Cannot connect to Gmail: ' . imap_last_error());
 

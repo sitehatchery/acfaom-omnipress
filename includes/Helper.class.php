@@ -1,16 +1,171 @@
 <?php
 require_once(F_INCLUDES . "Logger.class.php");
 
+/**
+ * Class Helper
+ */
 class Helper
 {
 
+	/**
+	 * @var
+	 */
 	protected $_db;
 
+	/**
+	 * @var
+	 */
+	protected $log;
+
+	/**
+	 * @var
+	 */
+	protected $cron_id;
+
+	/**
+	 * @var
+	 */
+	protected $cron_unique_id;
+
+	/**
+	 * @param $db
+	 */
 	public function __construct($db)
 	{
 		$this->_db = $db;
 	}
 
+	/**
+	 * Insert Blank line in log file
+	 */
+	public function addBlankLineInLogFile()
+	{
+		$this->log->putLog(' ');
+	}
+
+	/**
+	 * Start Cron
+	 * 1. Create Cron file
+	 * 2. Add Cron Log in DB
+	 */
+	public function startCron()
+	{
+		/* Create email attachments directory if not exists */
+		if (!file_exists(F_EMAIL_ATTACHMENTS)) {
+			mkdir(F_EMAIL_ATTACHMENTS, 0777, true);
+		}
+
+		$current_date         = date('Y-m-d H:i:s');
+		$this->cron_unique_id = strtotime($current_date);
+
+		// Prepare the Log file for the email. Log file name = Cron unique id name
+		$this->log = new Logger(F_LOGS . $this->cron_unique_id . ".txt");
+
+		$this->cron_id = $this->addCronLog(array('unique_id' => $this->cron_unique_id, 'started_at' => $current_date, 'end_at' => '0000-00-00 00:00:00'));
+		if ($this->cron_id) {
+			$this->log->putLog('Added cron log. Cron Unique Id: ' . $this->cron_unique_id . " | Cron Start Date: " . $current_date);
+		} else {
+			$this->log->putLog('Error adding cron log. Cron Unique Id: ' . $this->cron_unique_id . " | Cron Start Date: " . $current_date);
+		}
+		$this->addBlankLineInLogFile();
+	}
+
+	/**
+	 * End Cron
+	 * 1. Update Cron End Date in DB
+	 */
+	public function endCron()
+	{
+		$current_date = date('Y-m-d H:i:s');
+		$cron_id      = $this->endCronLog(array('id' => $this->cron_id, 'end_at' => $current_date));
+		if ($cron_id) {
+			$this->log->putLog('Ended cron. Cron Unique Id: ' . $this->cron_unique_id . " | Cron End Date: " . $current_date);
+		} else {
+			$this->log->putLog('Error ending cron. Cron Unique Id: ' . $this->cron_unique_id . " | Cron End Date: " . $current_date);
+		}
+	}
+
+	/**
+	 * Add Cron Log data in DB
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
+	public function addCronLog($data = array())
+	{
+		try {
+			$sql
+				 = "INSERT INTO cron_logs (
+                            unique_id,
+                            started_at,
+                            end_at
+                        ) VALUES (
+                            :unique_id,
+                            :started_at,
+                            :end_at
+                        )";
+			$stm = $this->_db->prepare($sql);
+
+			$stm->bindParam(":unique_id", $unique_id);
+			$stm->bindParam(":started_at", $started_at);
+			$stm->bindParam(":end_at", $end_at);
+
+			$unique_id  = $data['unique_id'];
+			$started_at = $data['started_at'];
+			$end_at     = $data['end_at'];
+
+			$res = $stm->execute();
+
+			if (!$res) {
+				return false;
+			} else {
+				return $this->_db->lastInsertId();
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Update end_at dat of Cron Log in DB
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
+	public function endCronLog($data = array())
+	{
+		try {
+			$sql = "UPDATE cron_logs SET end_at = :end_at WHERE id=:id";
+			$stm = $this->_db->prepare($sql);
+
+			$stm->bindParam(":end_at", $end_at);
+			$stm->bindParam(":id", $id);
+
+			$end_at = $data['end_at'];
+			$id     = $data['id'];
+
+			$res = $stm->execute();
+
+			if (!$res) {
+				return false;
+			} else {
+				return $id;
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Get config value by key from DB
+	 *
+	 * @param string $key
+	 * @return bool
+	 */
 	public function getConfigValueByKey($key = '')
 	{
 		try {
@@ -33,6 +188,12 @@ class Helper
 		}
 	}
 
+	/**
+	 * Get email by unique_id where is_processed = 1
+	 *
+	 * @param string $email_unique_id
+	 * @return bool
+	 */
 	public function getProcessedEmail($email_unique_id = '')
 	{
 		try {
@@ -55,16 +216,24 @@ class Helper
 		}
 	}
 
+	/**
+	 * Add Email data into db
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
 	public function addEmail($data = array())
 	{
 		try {
 			$sql
 				 = "INSERT INTO emails (
+                            cron_id,
                             unique_id,
                             subject,
                             date,
                             is_processed
                         ) VALUES (
+                            :cron_id,
                             :unique_id,
                             :subject,
                             :date,
@@ -75,14 +244,17 @@ class Helper
 							is_processed = :is_processed";
 			$stm = $this->_db->prepare($sql);
 
+			$stm->bindParam(":cron_id", $cron_id);
 			$stm->bindParam(":unique_id", $unique_id);
 			$stm->bindParam(":subject", $subject);
 			$stm->bindParam(":date", $date);
 			$stm->bindParam(":is_processed", $is_processed);
 
-			foreach ($data as $key => $value) {
-				$$key = $value;
-			}
+			$cron_id      = $data['cron_id'];
+			$unique_id    = $data['unique_id'];
+			$subject      = $data['subject'];
+			$date         = $data['date'];
+			$is_processed = $data['is_processed'];
 
 			$res = $stm->execute();
 
@@ -93,10 +265,17 @@ class Helper
 			}
 		}
 		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
 			return false;
 		}
 	}
 
+	/**
+	 * Set is_processed = 1 for Email in DB
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
 	public function updateEmailAfterProcessing($data = array())
 	{
 		try {
@@ -106,31 +285,39 @@ class Helper
 			$stm->bindParam(":id", $id);
 			$stm->bindParam(":is_processed", $is_processed);
 
-			foreach ($data as $key => $value) {
-				$$key = $value;
-			}
+			$id           = $data['id'];
+			$is_processed = $data['is_processed'];
 
 			$res = $stm->execute();
 
 			if (!$res) {
 				return false;
 			} else {
-				return $this->_db->lastInsertId();
+				return $data['id'];
 			}
 		}
 		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
 			return false;
 		}
 	}
 
+	/**
+	 * Add Order data into DB
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
 	public function addOrder($data = array())
 	{
 		try {
 			$sql
 				 = "INSERT INTO `order` (
+							email_id,
                             order_id,
                             order_date,
                             company_name,
+                            customer_id,
                             customer_name,
                             address,
                             city,
@@ -140,9 +327,11 @@ class Helper
                             email_address,
                             carrier_code
                         ) VALUES (
+                        	:email_id,
                             :order_id,
                             :order_date,
                             :company_name,
+                            :customer_id,
                             :customer_name,
                             :address,
                             :city,
@@ -153,8 +342,10 @@ class Helper
                             :carrier_code
                         ) ON DUPLICATE KEY UPDATE
                         	`id` = LAST_INSERT_ID(`id`),
+                        	email_id = :email_id,
                         	order_date = :order_date,
 							company_name = :company_name,
+							customer_id = :customer_id,
 							customer_name = :customer_name,
 							address = :address,
 							city = :city,
@@ -166,9 +357,11 @@ class Helper
 							";
 			$stm = $this->_db->prepare($sql);
 
+			$stm->bindParam(":email_id", $email_id);
 			$stm->bindParam(":order_id", $order_id);
 			$stm->bindParam(":order_date", $order_date);
 			$stm->bindParam(":company_name", $company_name);
+			$stm->bindParam(":customer_id", $customer_id);
 			$stm->bindParam(":customer_name", $customer_name);
 			$stm->bindParam(":address", $address);
 			$stm->bindParam(":city", $city);
@@ -178,9 +371,19 @@ class Helper
 			$stm->bindParam(":email_address", $email_address);
 			$stm->bindParam(":carrier_code", $carrier_code);
 
-			foreach ($data as $key => $value) {
-				$$key = $value;
-			}
+			$email_id      = $data['email_id'];
+			$order_id      = $data['order_id'];
+			$order_date    = $data['order_date'];
+			$company_name  = $data['company_name'];
+			$customer_id   = $data['customer_id'];
+			$customer_name = $data['customer_name'];
+			$address       = $data['address'];
+			$city          = $data['city'];
+			$state         = $data['state'];
+			$postal_code   = $data['postal_code'];
+			$phone_number  = $data['phone_number'];
+			$email_address = $data['email_address'];
+			$carrier_code  = $data['carrier_code'];
 
 			$res = $stm->execute();
 			if (!$res) {
@@ -190,40 +393,52 @@ class Helper
 			}
 		}
 		catch (Exception $e) {
-			print_r($e->getMessage());
+			$this->log->putLog($e->getMessage());
 			return false;
 		}
 	}
 
+	/**
+	 * Add Order Product data into DB
+	 *
+	 * @param array $data
+	 * @return bool
+	 */
 	public function addOrderProduct($data = array())
 	{
 		try {
 			$sql
 				 = "INSERT INTO `order_products` (
+							email_id,
                             order_id,
+                            product_code,
                             product_name,
-                            product_id,
                             quantity
                         ) VALUES (
+                        	:email_id,
                             :order_id,
+                            :product_code,
                             :product_name,
-                            :product_id,
                             :quantity
                         ) ON DUPLICATE KEY UPDATE
                         	`id` = LAST_INSERT_ID(`id`),
+                        	product_code = :product_code,
                         	product_name = :product_name,
 							quantity = :quantity
 							";
 			$stm = $this->_db->prepare($sql);
 
+			$stm->bindParam(":email_id", $email_id);
 			$stm->bindParam(":order_id", $order_id);
+			$stm->bindParam(":product_code", $product_code);
 			$stm->bindParam(":product_name", $product_name);
-			$stm->bindParam(":product_id", $product_id);
 			$stm->bindParam(":quantity", $quantity);
 
-			foreach ($data as $key => $value) {
-				$$key = $value;
-			}
+			$email_id     = $data['email_id'];
+			$order_id     = $data['order_id'];
+			$product_code = $data['product_code'];
+			$product_name = $data['product_name'];
+			$quantity     = $data['quantity'];
 
 			$res = $stm->execute();
 			if (!$res) {
@@ -233,15 +448,104 @@ class Helper
 			}
 		}
 		catch (Exception $e) {
-			print_r($e->getMessage());
+			$this->log->putLog($e->getMessage());
 			return false;
 		}
 	}
 
+	/**
+	 * Get Orders where product_code is Book.
+	 *
+	 * @return bool
+	 */
+	public function getBookOrders()
+	{
+		try {
+			$book_product_codes = $this->getConfigValueByKey('book_product_codes');
+			$orders             = array();
+			if ($book_product_codes) {
+				$book_product_codes = explode(", ", $book_product_codes);
+				$sql
+									= "
+							SELECT
+							  o.*
+							FROM
+							  `order` AS o
+							  LEFT JOIN order_products AS op
+								ON op.`order_id` = o.`order_id`
+							WHERE op.`product_code` IN ('" . implode("', '", $book_product_codes) . "')
+							GROUP BY o.`order_id`
+				";
+				$stm                = $this->_db->prepare($sql);
+
+				$res = $stm->execute();
+
+				if ($res) {
+					$rows = $stm->fetchAll(PDO::FETCH_ASSOC);
+					if ($rows) {
+						foreach ($rows as $index => $row) {
+							$orders[$index]['order']          = $row;
+							$orders[$index]['order_products'] = $this->getOrderProducts($row['order_id']);
+						}
+						return $orders;
+					} else {
+						return false;
+					}
+				} else {
+					return false;
+				}
+			}
+
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Get the products by Order Id
+	 *
+	 * @param int $order_id
+	 * @return bool
+	 */
+	public function getOrderProducts($order_id = 0)
+	{
+		try {
+			$sql = " SELECT * FROM order_products WHERE order_id = :order_id ";
+			$stm = $this->_db->prepare($sql);
+
+			$stm->bindParam(":order_id", $order_id);
+
+			$res = $stm->execute();
+
+			if ($res) {
+				$rows = $stm->fetchAll(PDO::FETCH_ASSOC);
+				if ($rows) {
+					return $rows;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * @param array $emails
+	 */
 	public function processOrderSearchEmails($emails = array())
 	{
 		if ($emails) {
 			foreach ($emails as $email_index => $email) {
+
+				$email_subject = $email['overview'][0]->subject;
+				$email_date    = date('Y-m-d H:i:s', $email['unique_id']);
 
 				// Check email is already processed or not. Process if not processed.
 				$is_email_already_processed = $this->getProcessedEmail($email['unique_id']);
@@ -249,13 +553,19 @@ class Helper
 				if (!$is_email_already_processed) {
 
 					// Prepare the Log file for the email. Log file name = Email unique id name
-					$log = new Logger(F_LOGS . $email['unique_id'] . ".txt");
+					//$this->log = new Logger(F_LOGS . $email['unique_id'] . ".txt");
 
 					if ($attachments = $email['attachments']) {
 
 						// Add Email in DB
-						$add_email_data = array('unique_id' => $email['unique_id'], 'subject' => $email['overview'][0]->subject, 'date' => date('Y-m-d H:i:s', $email['unique_id']), 'is_processed' => 0);
+						$add_email_data = array('cron_id' => $this->cron_id, 'unique_id' => $email['unique_id'], 'subject' => $email_subject, 'date' => $email_date, 'is_processed' => 0);
 						$email_id       = $this->addEmail($add_email_data);
+						if ($email_id) {
+							$this->log->putLog('Added Email. Subject: ' . $email_subject . " | Date: " . $email_date);
+						} else {
+							$this->log->putLog('Error adding email. Subject: ' . $email_subject . " | Date: " . $email_date);
+						}
+						$this->addBlankLineInLogFile();
 
 						// Loop through attachments
 						foreach ($attachments as $attachment) {
@@ -289,7 +599,7 @@ class Helper
 
 										if ($populated_data) {
 											foreach ($populated_data as $row_index => $row_data) {
-												$order_data = array('order_id' => 0, 'order_date' => '', 'company_name' => '', 'customer_name' => '', 'address' => '', 'city' => '', 'state' => '', 'postal_code' => '', 'phone_number' => '', 'email_address' => '', 'carrier_code' => '');
+												$order_data = array('email_id' => $email_id, 'order_id' => 0, 'order_date' => '', 'company_name' => '', 'customer_id' => '', 'customer_name' => '', 'address' => '', 'city' => '', 'state' => '', 'postal_code' => '', 'phone_number' => '', 'email_address' => '', 'carrier_code' => '');
 												if (array_key_exists('number', $row_data)) {
 													$order_data['order_id'] = $row_data['number'];
 												}
@@ -301,6 +611,9 @@ class Helper
 												}
 												if (array_key_exists('customer name', $row_data)) {
 													$order_data['customer_name'] = $row_data['customer name'];
+												}
+												if (array_key_exists('customer id', $row_data)) {
+													$order_data['customer_id'] = $row_data['customer id'];
 												}
 												if (array_key_exists('shipping address line1', $row_data)) {
 													$order_data['address'] = $row_data['shipping address line1'];
@@ -317,39 +630,50 @@ class Helper
 												$order_id = $this->addOrder($order_data);
 
 												if ($order_id) {
-													$log->putLog("Added/Updated Order: " . $order_data['order_id']);
+													$this->log->putLog("Added/Updated Order: " . $order_data['order_id']);
 												} else {
-													$log->putLog("Failed to add/update Order: " . $order_data['order_id']);
+													$this->log->putLog("Failed to add/update Order: " . $order_data['order_id']);
 												}
 											}
 										}
 
 									} else {
-										$log->putLog("Could not open file: " . $file);
+										$this->log->putLog("Could not open file: " . $file);
 									}
 
 								}
 							}
-
-							/*
-							 * todo
-							 * 3. Update emails table for is_processed = 1
-							 *
-							 */
+							$this->addBlankLineInLogFile();
 						}
 
+						// Update emails table for is_processed = 1
 						$update_email_data = array('id' => $email_id, 'is_processed' => 1);
 						$email_id          = $this->updateEmailAfterProcessing($update_email_data);
+						if ($email_id) {
+							$this->log->putLog('Email updated after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
+						} else {
+							$this->log->putLog('Error updating email after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
+						}
 					}
+				} else {
+					$this->log->putLog('Email already processed. Subject: ' . $email_subject . " | Date: " . $email_date);
 				}
+
+				$this->addBlankLineInLogFile();
 			}
 		}
 	}
 
+	/**
+	 * @param array $emails
+	 */
 	public function processMerchandisePurchasesEmails($emails = array())
 	{
 		if ($emails) {
 			foreach ($emails as $email_index => $email) {
+
+				$email_subject = $email['overview'][0]->subject;
+				$email_date    = date('Y-m-d H:i:s', $email['unique_id']);
 
 				// Check email is already processed or not. Process if not processed.
 				$is_email_already_processed = $this->getProcessedEmail($email['unique_id']);
@@ -357,13 +681,19 @@ class Helper
 				if (!$is_email_already_processed) {
 
 					// Prepare the Log file for the email. Log file name = Email unique id name
-					$log = new Logger(F_LOGS . $email['unique_id'] . ".txt");
+					//$this->log = new Logger(F_LOGS . $email['unique_id'] . ".txt");
 
 					if ($attachments = $email['attachments']) {
 
 						// Add Email in DB
-						$add_email_data = array('unique_id' => $email['unique_id'], 'subject' => $email['overview'][0]->subject, 'date' => date('Y-m-d H:i:s', $email['unique_id']), 'is_processed' => 0);
+						$add_email_data = array('cron_id' => $this->cron_id, 'unique_id' => $email['unique_id'], 'subject' => $email_subject, 'date' => $email_date, 'is_processed' => 0);
 						$email_id       = $this->addEmail($add_email_data);
+						if ($email_id) {
+							$this->log->putLog('Added Email. Subject: ' . $email_subject . " | Date: " . $email_date);
+						} else {
+							$this->log->putLog('Error adding email. Subject: ' . $email_subject . " | Date: " . $email_date);
+						}
+						$this->addBlankLineInLogFile();
 
 						// Loop through attachments
 						foreach ($attachments as $attachment) {
@@ -397,9 +727,12 @@ class Helper
 
 										if ($populated_data) {
 											foreach ($populated_data as $row_index => $row_data) {
-												$order_product_data = array('order_id' => 0, 'product_name' => '', 'product_id' => '', 'quantity' => '');
+												$order_product_data = array('email_id' => $email_id, 'order_id' => 0, 'product_code' => '', 'product_name' => '', 'product_id' => '', 'quantity' => '');
 												if (array_key_exists('order number', $row_data)) {
 													$order_product_data['order_id'] = $row_data['order number'];
+												}
+												if (array_key_exists('product code', $row_data)) {
+													$order_product_data['product_code'] = $row_data['product code'];
 												}
 												if (array_key_exists('product name', $row_data)) {
 													$order_product_data['product_name'] = $row_data['product name'];
@@ -413,31 +746,49 @@ class Helper
 												$order_product_id = $this->addOrderProduct($order_product_data);
 
 												if ($order_product_id) {
-													$log->putLog("Added/Updated Order Product: Order ID=" . $order_product_data['order_id'] . " | Product Name=" . $order_product_data['product_name']);
+													$this->log->putLog("Added/Updated Order Product: Order ID=" . $order_product_data['order_id'] . " | Product Code=" . $order_product_data['product_code']);
 												} else {
-													$log->putLog("Failed to add/update Order Product: Order ID=" . $order_product_data['order_id'] . " | Product Name=" . $order_product_data['product_name']);
+													$this->log->putLog("Failed to add/update Order Product: Order ID=" . $order_product_data['order_id'] . " | Product Code=" . $order_product_data['product_code']);
 												}
 											}
 										}
 
 									} else {
-										$log->putLog("Could not open file: " . $file);
+										$this->log->putLog("Could not open file: " . $file);
 									}
 								}
 							}
-
-							/*
-							 * todo
-							 * 3. Update emails table for is_processed = 1
-							 *
-							 */
+							$this->addBlankLineInLogFile();
 						}
 
+						// Update emails table for is_processed = 1
 						$update_email_data = array('id' => $email_id, 'is_processed' => 1);
 						$email_id          = $this->updateEmailAfterProcessing($update_email_data);
+						if ($email_id) {
+							$this->log->putLog('Email updated after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
+						} else {
+							$this->log->putLog('Error updating email after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
+						}
 					}
+				} else {
+					$this->log->putLog('Email already processed. Subject: ' . $email_subject . " | Date: " . $email_date);
 				}
+
+				$this->addBlankLineInLogFile();
 			}
+		}
+	}
+
+	/**
+	 *
+	 */
+	public function processOrders()
+	{
+		$orders = $this->getBookOrders();
+		if ($orders) {
+			$this->log->putLog('Starting pushing Book Orders on Omnipress');
+		} else {
+			$this->log->putLog('No Book Orders found to push on Omnipress');
 		}
 	}
 
