@@ -71,3 +71,7 @@ CREATE TABLE `order_products` (
   KEY `email_id` (`email_id`),
   CONSTRAINT `order_products_ibfk_1` FOREIGN KEY (`email_id`) REFERENCES `emails` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+ALTER TABLE order_products ADD COLUMN shipping_method VARCHAR(255) NULL AFTER quantity;
+
+INSERT INTO config (key, value) VALUES ('flush_data_prior_days', '30');
