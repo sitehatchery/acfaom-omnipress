@@ -75,8 +75,9 @@ class Mail
 				/* get information specific to this email */
 				$overview = imap_fetch_overview($inbox, $email_number, 0);
 
-				$return_emails[$email_index]['overview']  = $overview;
-				$return_emails[$email_index]['unique_id'] = strtotime($overview[0]->date);
+                $return_emails[$email_index]['overview']    = $overview;
+                $return_emails[$email_index]['unique_id']   = strtotime($overview[0]->date);
+                $return_emails[$email_index]['attachments'] = array();
 
 				/* get mail message, not actually used here.
 				   Refer to http://php.net/manual/en/function.imap-fetchbody.php
