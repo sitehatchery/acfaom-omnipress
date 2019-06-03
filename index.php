@@ -1,6 +1,6 @@
 <?php
 // We need to have good security so that someone can't simply enter the cron URL and so create an run the script.
-if (php_sapi_name() !='cli') exit;
+if (php_sapi_name() != 'cli') exit;
 
 // Include config file
 require_once("includes/config.php");
@@ -21,16 +21,15 @@ $helper_obj->processMerchandisePurchasesEmails($emails);
 // Process stored Orders
 $helper_obj->processOrders();
 
-/*
- * Todo
- * 1. Push that to Omnipress
- * 2. Send emial if something goes wrong
- */
-
 // End the cron
 $helper_obj->endCron();
 
 //Send email if omnipress API fails
-if($helper_obj->is_error){
-    $mail_obj->sendErrorMessage($helper_obj->cron_unique_id);
+if ($helper_obj->is_error) {
+	$mail_response = $mail_obj->sendErrorMessage($helper_obj->cron_unique_id);
+	if ($mail_response['success']) {
+		$helper_obj->log->putLog('Cron error email sent.');
+	} else {
+		$helper_obj->log->putLog('Error in sending Cron error email. ' . $mail_response['error_message']);
+	}
 }

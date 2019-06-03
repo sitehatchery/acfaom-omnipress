@@ -16,7 +16,7 @@ class Helper
 	/**
 	 * @var
 	 */
-	protected $log;
+	public $log;
 
 	/**
 	 * @var
@@ -815,8 +815,7 @@ class Helper
 
 		    $this->omnipress_obj = new Omnipress($omnipress_username, $omnipress_password);
 			$this->log->putLog('Starting pushing Book Orders on Omnipress');
-			//Call omnipress API to push orders into the Omnipress
-            //iterate the loop and push the order to the omnipress
+			//Call omnipress API to push orders into the Omnipress. iterate the loop and push the order to the omnipress
             foreach ($orders as $order) {
                 $push_order_response = $this->omnipress_obj->pushOrder($order);
 
@@ -828,9 +827,11 @@ class Helper
                     $this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
                 }
             }
+			$this->log->putLog('Completed pushing Book Orders on Omnipress');
 		} else {
 			$this->log->putLog('No Book Orders found to push on Omnipress');
 		}
+		$this->addBlankLineInLogFile();
 	}
 
     /**
@@ -978,10 +979,12 @@ class Helper
 
                     //Delete records from the Cronlogs tables
                     $this->deleteCronLog($log['id']);
-                    $this->log->putLog('Starting flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
+                    $this->log->putLog('Completed flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
                     $this->addBlankLineInLogFile();
                 }
-            }
+            } else {
+				$this->log->putLog('No data found to flush before : ' . $flush_start_date);
+			}
 
             $this->log->putLog('Completed flushing data before : ' . $flush_start_date);
             $this->addBlankLineInLogFile();
