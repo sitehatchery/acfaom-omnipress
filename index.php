@@ -29,3 +29,8 @@ $helper_obj->processOrders();
 
 // End the cron
 $helper_obj->endCron();
+
+//Send email if omnipress API fails
+if($helper_obj->is_error){
+    $mail_obj->sendErrorMessage($helper_obj->cron_unique_id);
+}

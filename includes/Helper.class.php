@@ -1,5 +1,6 @@
 <?php
 require_once(F_INCLUDES . "Logger.class.php");
+require_once(F_INCLUDES . "Omnipress.class.php");
 
 /**
  * Class Helper
@@ -25,7 +26,17 @@ class Helper
 	/**
 	 * @var
 	 */
-	protected $cron_unique_id;
+	public $cron_unique_id;
+
+    /**
+     * @var Omnipress
+     */
+    protected $omnipress_obj;
+
+    /**
+     * @var bool
+     */
+    public $is_error;
 
 	/**
 	 * @param $db
@@ -33,6 +44,7 @@ class Helper
 	public function __construct($db)
 	{
 		$this->_db = $db;
+        $this->is_error = false;
 	}
 
 	/**
@@ -798,7 +810,24 @@ class Helper
 	{
 		$orders = $this->getBookOrders();
 		if ($orders) {
+            $omnipress_username = $this->getConfigValueByKey('omnipress_username');
+            $omnipress_password = $this->getConfigValueByKey('omnipress_password');
+
+		    $this->omnipress_obj = new Omnipress($omnipress_username, $omnipress_password);
 			$this->log->putLog('Starting pushing Book Orders on Omnipress');
+			//Call omnipress API to push orders into the Omnipress
+            //iterate the loop and push the order to the omnipress
+            foreach ($orders as $order) {
+                $push_order_response = $this->omnipress_obj->pushOrder($order);
+
+                if($push_order_response['success']){
+                    $this->log->putLog("Added/Updated Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+                }else{
+                    $this->is_error = true;
+                    $this->log->putLog("Failed to add/update Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+                    $this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
+                }
+            }
 		} else {
 			$this->log->putLog('No Book Orders found to push on Omnipress');
 		}
