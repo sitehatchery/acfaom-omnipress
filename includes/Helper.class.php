@@ -842,8 +842,7 @@ class Helper
     {
         try {
             $prior_days_cron_logs = $this->getConfigValueByKey('flush_data_prior_days');
-            $current_date         = date('Y-m-d H:i:s');
-            $sql                  = " SELECT *, DATEDIFF('$current_date', DATE_FORMAT(FROM_UNIXTIME(unique_id), '%Y-%m-%d %H:%i:%s')) as days_before FROM omnipress.cron_logs HAVING days_before > " . $prior_days_cron_logs;
+            $sql                  = " SELECT *, DATEDIFF(NOW(), DATE_FORMAT(FROM_UNIXTIME(unique_id), '%Y-%m-%d %H:%i:%s')) as days_before FROM omnipress.cron_logs HAVING days_before > " . $prior_days_cron_logs;
             $stm                  = $this->_db->prepare($sql);
             $res                  = $stm->execute();
             if ($res) {
