@@ -165,4 +165,20 @@ class Mail
 		return $return_emails;
 	}
 
+    /**
+     * @param $cron_unique_id
+     */
+    public function sendErrorMessage($cron_unique_id)
+    {
+        $to = 'jason@sitehatchery.com, dev@sitehatchery.com';
+        $subject = 'AFCAOM-Omnipress Cron Error';
+        $message = 'There is a error in Cron ID: '.$cron_unique_id.' Please look into the log file';
+        $headers = array(
+            'From' => 'reports@acfaom.org',
+            'Reply-To' => 'reports@acfaom.org',
+            'X-Mailer' => 'PHP/' . phpversion()
+        );
+        mail($to, $subject, $message, $headers);
+    }
+
 }

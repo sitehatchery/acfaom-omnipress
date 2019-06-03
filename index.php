@@ -1,6 +1,6 @@
 <?php
 // We need to have good security so that someone can't simply enter the cron URL and so create an run the script.
-if (php_sapi_name() !='cli') exit;
+//if (php_sapi_name() !='cli') exit;
 
 // Include config file
 require_once("includes/config.php");
@@ -29,3 +29,8 @@ $helper_obj->processOrders();
 
 // End the cron
 $helper_obj->endCron();
+
+//Send email if omnipress API fails
+if($helper_obj->is_error){
+    $mail_obj->sendErrorMessage($helper_obj->cron_unique_id);
+}
