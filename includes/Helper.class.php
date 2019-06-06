@@ -337,7 +337,8 @@ class Helper
                             postal_code,
                             phone_number,
                             email_address,
-                            carrier_code
+                            carrier_code,
+                            is_pushed
                         ) VALUES (
                         	:email_id,
                             :order_id,
@@ -351,7 +352,8 @@ class Helper
                             :postal_code,
                             :phone_number,
                             :email_address,
-                            :carrier_code
+                            :carrier_code,
+                            :is_pushed
                         ) ON DUPLICATE KEY UPDATE
                         	`id` = LAST_INSERT_ID(`id`),
                         	email_id = :email_id,
@@ -382,6 +384,7 @@ class Helper
 			$stm->bindParam(":phone_number", $phone_number);
 			$stm->bindParam(":email_address", $email_address);
 			$stm->bindParam(":carrier_code", $carrier_code);
+			$stm->bindParam(":is_pushed", $is_pushed);
 
 			$email_id      = $data['email_id'];
 			$order_id      = $data['order_id'];
@@ -396,6 +399,7 @@ class Helper
 			$phone_number  = $data['phone_number'];
 			$email_address = $data['email_address'];
 			$carrier_code  = $data['carrier_code'];
+			$is_pushed     = $data['is_pushed'];
 
 			$res = $stm->execute();
 			if (!$res) {
@@ -647,7 +651,7 @@ class Helper
 
 										if ($populated_data) {
 											foreach ($populated_data as $row_index => $row_data) {
-												$order_data = array('email_id' => $email_id, 'order_id' => 0, 'order_date' => '', 'company_name' => '', 'customer_id' => '', 'customer_name' => '', 'address' => '', 'city' => '', 'state' => '', 'postal_code' => '', 'phone_number' => '', 'email_address' => '', 'carrier_code' => '');
+												$order_data = array('email_id' => $email_id, 'order_id' => 0, 'order_date' => '', 'company_name' => '', 'customer_id' => '', 'customer_name' => '', 'address' => '', 'city' => '', 'state' => '', 'postal_code' => '', 'phone_number' => '', 'email_address' => '', 'carrier_code' => '', 'is_pushed' => 0);
 												if (array_key_exists('number', $row_data)) {
 													$order_data['order_id'] = $row_data['number'];
 												}
