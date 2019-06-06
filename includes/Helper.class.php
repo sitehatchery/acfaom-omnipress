@@ -485,7 +485,6 @@ class Helper
 			$stm->bindParam(":id", $id);
 			$stm->bindParam(":is_pushed", $is_pushed);
 
-			$id        = $data['id'];
 			$is_pushed = 1;
 
 			$res = $stm->execute();
@@ -493,7 +492,7 @@ class Helper
 			if (!$res) {
 				return false;
 			} else {
-				return $data['id'];
+				return $id;
 			}
 		}
 		catch (Exception $e) {
