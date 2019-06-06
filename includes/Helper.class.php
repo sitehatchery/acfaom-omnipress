@@ -28,23 +28,23 @@ class Helper
 	 */
 	public $cron_unique_id;
 
-    /**
-     * @var Omnipress
-     */
-    protected $omnipress_obj;
+	/**
+	 * @var Omnipress
+	 */
+	protected $omnipress_obj;
 
-    /**
-     * @var bool
-     */
-    public $is_error;
+	/**
+	 * @var bool
+	 */
+	public $is_error;
 
 	/**
 	 * @param $db
 	 */
 	public function __construct($db)
 	{
-		$this->_db = $db;
-        $this->is_error = false;
+		$this->_db      = $db;
+		$this->is_error = false;
 	}
 
 	/**
@@ -471,7 +471,39 @@ class Helper
 	}
 
 	/**
-	 * Get Orders where product_code is Book.
+	 * Update Order "is_pushed" flag after pushing it to Omnipress
+	 *
+	 * @param int $id
+	 * @return bool
+	 */
+	public function updateOrderAfterProcessing($id = 0)
+	{
+		try {
+			$sql = "UPDATE order SET is_pushed = :is_pushed WHERE id=:id";
+			$stm = $this->_db->prepare($sql);
+
+			$stm->bindParam(":id", $id);
+			$stm->bindParam(":is_pushed", $is_pushed);
+
+			$id        = $data['id'];
+			$is_pushed = 1;
+
+			$res = $stm->execute();
+
+			if (!$res) {
+				return false;
+			} else {
+				return $data['id'];
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Get Orders where product_code is Book and is_pushed=0.
 	 *
 	 * @return bool
 	 */
@@ -490,7 +522,7 @@ class Helper
 							  `order` AS o
 							  LEFT JOIN order_products AS op
 								ON op.`order_id` = o.`order_id`
-							WHERE op.`product_code` IN ('" . implode("', '", $book_product_codes) . "')
+							WHERE op.`product_code` IN ('" . implode("', '", $book_product_codes) . "') AND o.is_pushed = 0
 							GROUP BY o.`order_id`
 				";
 				$stm                = $this->_db->prepare($sql);
@@ -672,8 +704,8 @@ class Helper
 							$this->log->putLog('Error updating email after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
 						}
 					} else {
-                        $this->log->putLog('No attachments found for Email. Subject: ' . $email_subject . " | Date: " . $email_date);
-                    }
+						$this->log->putLog('No attachments found for Email. Subject: ' . $email_subject . " | Date: " . $email_date);
+					}
 				} else {
 					$this->log->putLog('Email already processed. Subject: ' . $email_subject . " | Date: " . $email_date);
 				}
@@ -746,7 +778,7 @@ class Helper
 
 										if ($populated_data) {
 											foreach ($populated_data as $row_index => $row_data) {
-												$order_product_data = array('email_id' => $email_id, 'order_id' => 0, 'product_code' => '', 'product_name' => '', 'product_id' => '', 'quantity' => '', 'shipping_method' =>'');
+												$order_product_data = array('email_id' => $email_id, 'order_id' => 0, 'product_code' => '', 'product_name' => '', 'product_id' => '', 'quantity' => '', 'shipping_method' => '');
 												if (array_key_exists('order number', $row_data)) {
 													$order_product_data['order_id'] = $row_data['order number'];
 												}
@@ -762,9 +794,9 @@ class Helper
 												if (array_key_exists('quantity', $row_data)) {
 													$order_product_data['quantity'] = $row_data['quantity'];
 												}
-                                                if (array_key_exists('shipping method', $row_data)) {
-                                                    $order_product_data['shipping_method'] = $row_data['shipping method'];
-                                                }
+												if (array_key_exists('shipping method', $row_data)) {
+													$order_product_data['shipping_method'] = $row_data['shipping method'];
+												}
 												$order_product_id = $this->addOrderProduct($order_product_data);
 
 												if ($order_product_id) {
@@ -792,8 +824,8 @@ class Helper
 							$this->log->putLog('Error updating email after processing. Subject: ' . $email_subject . " | Id: " . $email_id);
 						}
 					} else {
-                        $this->log->putLog('No attachments found for Email. Subject: ' . $email_subject . " | Date: " . $email_date);
-                    }
+						$this->log->putLog('No attachments found for Email. Subject: ' . $email_subject . " | Date: " . $email_date);
+					}
 				} else {
 					$this->log->putLog('Email already processed. Subject: ' . $email_subject . " | Date: " . $email_date);
 				}
@@ -810,23 +842,24 @@ class Helper
 	{
 		$orders = $this->getBookOrders();
 		if ($orders) {
-            $omnipress_username = $this->getConfigValueByKey('omnipress_username');
-            $omnipress_password = $this->getConfigValueByKey('omnipress_password');
+			$omnipress_username = $this->getConfigValueByKey('omnipress_username');
+			$omnipress_password = $this->getConfigValueByKey('omnipress_password');
 
-		    $this->omnipress_obj = new Omnipress($omnipress_username, $omnipress_password);
+			$this->omnipress_obj = new Omnipress($omnipress_username, $omnipress_password);
 			$this->log->putLog('Starting pushing Book Orders on Omnipress');
 			//Call omnipress API to push orders into the Omnipress. iterate the loop and push the order to the omnipress
-            foreach ($orders as $order) {
-                $push_order_response = $this->omnipress_obj->pushOrder($order);
+			foreach ($orders as $order) {
+				$push_order_response = $this->omnipress_obj->pushOrder($order);
 
-                if($push_order_response['success']){
-                    $this->log->putLog("Added/Updated Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
-                }else{
-                    $this->is_error = true;
-                    $this->log->putLog("Failed to add/update Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
-                    $this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
-                }
-            }
+				if ($push_order_response['success']) {
+					$this->updateOrderAfterProcessing($order['order']['id']);
+					$this->log->putLog("Added/Updated Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+				} else {
+					$this->is_error = true;
+					$this->log->putLog("Failed to add/update Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+					$this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
+				}
+			}
 			$this->log->putLog('Completed pushing Book Orders on Omnipress');
 		} else {
 			$this->log->putLog('No Book Orders found to push on Omnipress');
@@ -834,208 +867,219 @@ class Helper
 		$this->addBlankLineInLogFile();
 	}
 
-    /**
-     * To fetch the cron logs records
-     * @return bool
-     */
-    public function getCronLogs()
-    {
-        try {
-            $prior_days_cron_logs = $this->getConfigValueByKey('flush_data_prior_days');
-            $sql                  = " SELECT *, DATEDIFF(NOW(), DATE_FORMAT(FROM_UNIXTIME(unique_id), '%Y-%m-%d %H:%i:%s')) as days_before FROM omnipress.cron_logs HAVING days_before > " . $prior_days_cron_logs;
-            $stm                  = $this->_db->prepare($sql);
-            $res                  = $stm->execute();
-            if ($res) {
-                $rows = $stm->fetchAll(PDO::FETCH_ASSOC);
-                if ($rows) {
-                    return $rows;
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        } catch (Exception $e) {
-            $this->log->putLog($e->getMessage());
-            return false;
-        }
-    }
+	/**
+	 * To fetch the cron logs records
+	 *
+	 * @return bool
+	 */
+	public function getCronLogs()
+	{
+		try {
+			$prior_days_cron_logs = $this->getConfigValueByKey('flush_data_prior_days');
+			$sql                  = " SELECT *, DATEDIFF(NOW(), DATE_FORMAT(FROM_UNIXTIME(unique_id), '%Y-%m-%d %H:%i:%s')) as days_before FROM omnipress.cron_logs HAVING days_before > " . $prior_days_cron_logs;
+			$stm                  = $this->_db->prepare($sql);
+			$res                  = $stm->execute();
+			if ($res) {
+				$rows = $stm->fetchAll(PDO::FETCH_ASSOC);
+				if ($rows) {
+					return $rows;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
 
-    /**
-     * To delete the cron logs record
-     * @param $id
-     * @return bool
-     */
-    public function deleteCronLog($id)
-    {
-        try {
-            $sql = " DELETE FROM cron_logs WHERE id = :id ";
-            $stm = $this->_db->prepare($sql);
-            $stm->bindParam(":id", $id);
-            $res = $stm->execute();
-            if ($res) {
-                $this->log->putLog('Deleted cron data');
-                return true;
-            } else {
-                $this->log->putLog('Error Deleting cron data');
-                return false;
-            }
-
-        } catch (Exception $e) {
-            $this->log->putLog($e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * @param $id
-     * @return bool
-     */
-    public function getEmailsByCronId($id)
-    {
-        try {
-            $sql = " SELECT * FROM emails WHERE cron_id = :id ";
-            $stm = $this->_db->prepare($sql);
-            $stm->bindParam(":id", $id);
-            $res = $stm->execute();
-            if ($res) {
-                $rows = $stm->fetchAll(PDO::FETCH_ASSOC);
-                if ($rows) {
-                    return $rows;
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        } catch (Exception $e) {
-            $this->log->putLog($e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * To delete the old data from the cron, orders and order_product table
-     * @return bool
-     */
-    public function flushData()
-    {
-        try {
-
-            $prior_days_cron_logs = $this->getConfigValueByKey('flush_data_prior_days');
-            $flush_start_date       = date('m-d-Y', strtotime("-" . $prior_days_cron_logs . " days"));
-
-            $current_date         = date('Y-m-d H:i:s');
-            $this->cron_unique_id = strtotime($current_date);
-
-            // Prepare the Log file for the email. Log file name = Cron unique id name
-            $this->log = new Logger(F_LOGS . $this->cron_unique_id . "_flush_data.txt");
-
-            $this->log->putLog('Starting flushing data before: ' . $flush_start_date);
-            $this->addBlankLineInLogFile();
-
-            $cronLogs = $this->getCronLogs();
-            if ($cronLogs && is_array($cronLogs) && count($cronLogs)) {
-                foreach ($cronLogs as $log) {
-
-                    $this->log->putLog('Starting flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
-
-                    //Delete the log file from the logs directory
-                    $logFile            = F_LOGS . $log['unique_id'] . ".txt";
-                    $deleteFileResponse = $this->deleteFile($logFile);
-                    if ($deleteFileResponse)
-                        $this->log->putLog('Deleted log file: ' . $log['unique_id'] . '.txt');
-                    else
-                        $this->log->putLog('Error in deleting log file : ' . $log['unique_id'] . '.txt');
-
-                    //Delete directory or ZIP file from the email-attachments directory
-                    $emails = $this->getEmailsByCronId($log['id']);
-                    if ($handle = opendir(F_EMAIL_ATTACHMENTS)) {
-                        while (false !== ($entry = readdir($handle))) {
-                            if ($emails && is_array($emails) && count($emails)) {
-                                foreach ($emails as $email) {
-                                    if (strtok($entry, '-') == $email['unique_id']) {
-                                        //Delete the ZIP files from the email_attachments directory
-                                        $deleteFileResponse = $this->deleteFile(F_EMAIL_ATTACHMENTS . $entry . "zip");
-                                        if ($deleteFileResponse)
-                                            $this->log->putLog('Deleted email attachment zip: ' . $entry);
-                                        else
-                                            $this->log->putLog('Error in deleting email attachment zip : ' . $entry);
-
-                                        //Delete the local directories from the email_attachments directory
-                                        $deleteDirectoryResponse = $this->deleteDirectory(F_EMAIL_ATTACHMENTS . $entry);
-                                        if ($deleteDirectoryResponse)
-                                            $this->log->putLog('Deleted email attachment directory : ' . $entry);
-                                        else
-                                            $this->log->putLog('Error in deleting email attachment directory : ' . $entry);
-
-                                    }
-                                }
-                            }
-                        }
-                        closedir($handle);
-                    }
-
-                    //Delete records from the Cronlogs tables
-                    $this->deleteCronLog($log['id']);
-                    $this->log->putLog('Completed flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
-                    $this->addBlankLineInLogFile();
-                }
-            } else {
-				$this->log->putLog('No data found to flush before : ' . $flush_start_date);
+	/**
+	 * To delete the cron logs record
+	 *
+	 * @param $id
+	 * @return bool
+	 */
+	public function deleteCronLog($id)
+	{
+		try {
+			$sql = " DELETE FROM cron_logs WHERE id = :id ";
+			$stm = $this->_db->prepare($sql);
+			$stm->bindParam(":id", $id);
+			$res = $stm->execute();
+			if ($res) {
+				$this->log->putLog('Deleted cron data');
+				return true;
+			} else {
+				$this->log->putLog('Error Deleting cron data');
+				return false;
 			}
 
-            $this->log->putLog('Completed flushing data before : ' . $flush_start_date);
-            $this->addBlankLineInLogFile();
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
 
-            return true;
-        } catch (Exception $e) {
-            $this->log->putLog($e->getMessage());
-            return false;
-        }
-    }
+	/**
+	 * @param $id
+	 * @return bool
+	 */
+	public function getEmailsByCronId($id)
+	{
+		try {
+			$sql = " SELECT * FROM emails WHERE cron_id = :id ";
+			$stm = $this->_db->prepare($sql);
+			$stm->bindParam(":id", $id);
+			$res = $stm->execute();
+			if ($res) {
+				$rows = $stm->fetchAll(PDO::FETCH_ASSOC);
+				if ($rows) {
+					return $rows;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
 
-    /**
-     * To delete files, directory from logs and email-attachments directories
-     * @param $dir
-     * @return bool|string
-     */
-    public function deleteFile($dir)
-    {
-        try {
-            if (file_exists($dir) && !is_dir($dir)) {
-                return unlink($dir);
-            }
-            return true;
-        } catch (Exception $e) {
-            return false;
-        }
-    }
+	/**
+	 * To delete the old data from the cron, orders and order_product table
+	 *
+	 * @return bool
+	 */
+	public function flushData()
+	{
+		try {
 
-    /**
-     * @param $dir
-     * @return bool
-     */
-    public function deleteDirectory($dir)
-    {
-        try {
+			$prior_days_cron_logs = $this->getConfigValueByKey('flush_data_prior_days');
+			$flush_start_date     = date('m-d-Y', strtotime("-" . $prior_days_cron_logs . " days"));
 
-            if (file_exists($dir) && !is_dir($dir)) {
-                return unlink($dir);
-            }
-            foreach (scandir($dir) as $item) {
-                if ($item == '.' || $item == '..') {
-                    continue;
-                }
+			$current_date         = date('Y-m-d H:i:s');
+			$this->cron_unique_id = strtotime($current_date);
 
-                if (!$this->deleteDirectory($dir . DIRECTORY_SEPARATOR . $item)) {
-                    return false;
-                }
-            }
-            return rmdir($dir);
-        } catch (Exception $e) {
-            return false;
-        }
-    }
+			// Prepare the Log file for the email. Log file name = Cron unique id name
+			$this->log = new Logger(F_LOGS . $this->cron_unique_id . "_flush_data.txt");
+
+			$this->log->putLog('Starting flushing data before: ' . $flush_start_date);
+			$this->addBlankLineInLogFile();
+
+			$cronLogs = $this->getCronLogs();
+			if ($cronLogs && is_array($cronLogs) && count($cronLogs)) {
+				foreach ($cronLogs as $log) {
+
+					$this->log->putLog('Starting flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
+
+					//Delete the log file from the logs directory
+					$logFile            = F_LOGS . $log['unique_id'] . ".txt";
+					$deleteFileResponse = $this->deleteFile($logFile);
+					if ($deleteFileResponse)
+						$this->log->putLog('Deleted log file: ' . $log['unique_id'] . '.txt');
+					else
+						$this->log->putLog('Error in deleting log file : ' . $log['unique_id'] . '.txt');
+
+					//Delete directory or ZIP file from the email-attachments directory
+					$emails = $this->getEmailsByCronId($log['id']);
+					if ($handle = opendir(F_EMAIL_ATTACHMENTS)) {
+						while (false !== ($entry = readdir($handle))) {
+							if ($emails && is_array($emails) && count($emails)) {
+								foreach ($emails as $email) {
+									if (strtok($entry, '-') == $email['unique_id']) {
+										//Delete the ZIP files from the email_attachments directory
+										$deleteFileResponse = $this->deleteFile(F_EMAIL_ATTACHMENTS . $entry . "zip");
+										if ($deleteFileResponse)
+											$this->log->putLog('Deleted email attachment zip: ' . $entry);
+										else
+											$this->log->putLog('Error in deleting email attachment zip : ' . $entry);
+
+										//Delete the local directories from the email_attachments directory
+										$deleteDirectoryResponse = $this->deleteDirectory(F_EMAIL_ATTACHMENTS . $entry);
+										if ($deleteDirectoryResponse)
+											$this->log->putLog('Deleted email attachment directory : ' . $entry);
+										else
+											$this->log->putLog('Error in deleting email attachment directory : ' . $entry);
+
+									}
+								}
+							}
+						}
+						closedir($handle);
+					}
+
+					//Delete records from the Cronlogs tables
+					$this->deleteCronLog($log['id']);
+					$this->log->putLog('Completed flushing data for Cron Id: ' . $log['id'] . ' | Cron Date: ' . date('m-d-Y H:i:s', $log['unique_id']));
+					$this->addBlankLineInLogFile();
+				}
+			} else {
+				$this->log->putLog('No data found to flush before : ' . $flush_start_date);
+				$this->addBlankLineInLogFile();
+			}
+
+			$this->log->putLog('Completed flushing data before : ' . $flush_start_date);
+			$this->addBlankLineInLogFile();
+
+			return true;
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * To delete files, directory from logs and email-attachments directories
+	 *
+	 * @param $dir
+	 * @return bool|string
+	 */
+	public function deleteFile($dir)
+	{
+		try {
+			if (file_exists($dir) && !is_dir($dir)) {
+				return unlink($dir);
+			}
+			return true;
+		}
+		catch (Exception $e) {
+			return false;
+		}
+	}
+
+	/**
+	 * @param $dir
+	 * @return bool
+	 */
+	public function deleteDirectory($dir)
+	{
+		try {
+
+			if (file_exists($dir) && !is_dir($dir)) {
+				return unlink($dir);
+			}
+			foreach (scandir($dir) as $item) {
+				if ($item == '.' || $item == '..') {
+					continue;
+				}
+
+				if (!$this->deleteDirectory($dir . DIRECTORY_SEPARATOR . $item)) {
+					return false;
+				}
+			}
+			return rmdir($dir);
+		}
+		catch (Exception $e) {
+			return false;
+		}
+	}
 
 }

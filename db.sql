@@ -80,3 +80,6 @@ INSERT INTO config (`key`, `value`) VALUES ('flush_data_prior_days', '30')
 INSERT INTO `config` (`key`, `value`) VALUES ('omnipress_username', '14184A');
 INSERT INTO `config` (`key`, `value`) VALUES ('omnipress_password', 'omnipress1234!');
 UPDATE `config` SET `value`='ACFAOM_ReviewText_ThirdEdition' WHERE `key`='book_product_codes';
+
+-- 06 June 2019
+ALTER TABLE `order` ADD COLUMN `is_pushed` TINYINT(4) DEFAULT 0 NOT NULL AFTER `carrier_code`;
