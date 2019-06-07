@@ -83,3 +83,16 @@ UPDATE `config` SET `value`='ACFAOM_ReviewText_ThirdEdition' WHERE `key`='book_p
 
 -- 06 June 2019
 ALTER TABLE `order` ADD COLUMN `is_pushed` TINYINT(4) DEFAULT 0 NOT NULL AFTER `carrier_code`;
+
+-- 07 June 2019
+DROP TABLE IF EXISTS `shipping_methods`;
+CREATE TABLE `shipping_methods` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `carrier_code` varchar(25) NOT NULL,
+  `carrier_description` varchar(255) NOT NULL,
+  `carrier` varchar(25) NOT NULL,
+  `service_type` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `carrier_description` (`carrier_description`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+insert  into `shipping_methods`(`id`,`carrier_code`,`carrier_description`,`carrier`,`service_type`) values (1,'U01','Next Day Air','UPS','Domestic'),(2,'U43','Next Day Air Saver','UPS','Domestic'),(3,'U07','2nd Day Air','UPS','Domestic'),(4,'U21','3 Day Select','UPS','Domestic'),(5,'U11','Ground','UPS','Domestic'),(6,'U63','Worldwide Express Plus','UPS','International'),(7,'U49','Worldwide Express','UPS','International'),(8,'U98','Worldwide Saver','UPS','International'),(9,'U54','Worldwide Expedited','UPS','International');

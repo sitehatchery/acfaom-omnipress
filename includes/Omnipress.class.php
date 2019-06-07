@@ -48,6 +48,7 @@ class Omnipress
 		$state                  = $order['order']['state'];
 		$postal_code            = $order['order']['postal_code'];
 		$product_code           = $order['order_products'][0]['product_code'];
+		$shipping_method        = $order['order_products'][0]['shipping_method'];
 		$customer_name_exploded = explode(' ', $customer_name, 2);
 		$customer_first_name    = $customer_name_exploded[0];
 		$customer_last_name     = isset($customer_name_exploded[1]) ? $customer_name_exploded[1] : '';
@@ -70,20 +71,22 @@ class Omnipress
 		$ordered_by_obj->PostalCode = $postal_code;
 
 		//Set ShipTo Parameters
-		$ship_to_obj                       = new stdClass();
-		$order_ship_to_obj                 = new stdClass();
-		$freight_carrier_obj               = new stdClass();
-		$freight_carrier_obj->Name         = 'UPS';
-		$order_ship_to_obj->FirstName      = $customer_first_name;
-		$order_ship_to_obj->LastName       = $customer_last_name;
-		$order_ship_to_obj->Address1       = $address;
-		$order_ship_to_obj->City           = $city;
-		$order_ship_to_obj->State          = $state;
-		$order_ship_to_obj->PostalCode     = $postal_code;
-		$order_ship_to_obj->Flag           = 'Other'; //choose either one of Other, OrderedBy
-		$order_ship_to_obj->Key            = '0';
-		$order_ship_to_obj->FreightCarrier = $freight_carrier_obj;
-		$ship_to_obj->OrderShipTo          = $order_ship_to_obj;
+		$ship_to_obj                               = new stdClass();
+		$order_ship_to_obj                         = new stdClass();
+		$freight_carrier_obj                       = new stdClass();
+		$freight_carrier_obj->Name                 = $order['shipping_info']['carrier'];
+		$order_ship_to_obj->FirstName              = $customer_first_name;
+		$order_ship_to_obj->LastName               = $customer_last_name;
+		$order_ship_to_obj->Address1               = $address;
+		$order_ship_to_obj->City                   = $city;
+		$order_ship_to_obj->State                  = $state;
+		$order_ship_to_obj->PostalCode             = $postal_code;
+		$order_ship_to_obj->Flag                   = 'Other'; //choose either one of Other, OrderedBy
+		$order_ship_to_obj->Key                    = '0';
+		$order_ship_to_obj->FreightCarrier         = $freight_carrier_obj;
+		$order_ship_to_obj->FreightCode            = $order['shipping_info']['carrier_code'];
+		$order_ship_to_obj->FreightCodeDescription = $shipping_method;
+		$ship_to_obj->OrderShipTo                  = $order_ship_to_obj;
 
 		//Set offers parameters
 		$offers_obj                 = new stdClass();

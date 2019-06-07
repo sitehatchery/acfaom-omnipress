@@ -839,6 +839,65 @@ class Helper
 	}
 
 	/**
+	 * Get default Carrier info.
+	 *
+	 * @return bool
+	 */
+	public function getDefaultShippingMethod()
+	{
+		try {
+			$sql = " SELECT * FROM shipping_methods WHERE carrier_code = 'U11' LIMIT 0,1";
+			$stm = $this->_db->prepare($sql);
+			$res = $stm->execute();
+
+			if ($res) {
+				$row = $stm->fetch(PDO::FETCH_ASSOC);
+				if ($row) {
+					return $row;
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Get Carrier info based on shipping_method passed.
+	 *
+	 * @param string $shipping_method
+	 * @return bool
+	 */
+	public function getShippingMethod($shipping_method = '')
+	{
+		try {
+			$sql = " SELECT * FROM shipping_methods WHERE carrier_description LIKE '%" . $shipping_method . "%' ORDER BY carrier_description ASC LIMIT 0,1";
+			$stm = $this->_db->prepare($sql);
+			$res = $stm->execute();
+
+			if ($res) {
+				$row = $stm->fetch(PDO::FETCH_ASSOC);
+				if ($row) {
+					return $row;
+				} else {
+					return $this->getDefaultShippingMethod();
+				}
+			} else {
+				return $this->getDefaultShippingMethod();
+			}
+		}
+		catch (Exception $e) {
+			$this->log->putLog($e->getMessage());
+			return false;
+		}
+	}
+
+	/**
 	 *
 	 */
 	public function processOrders()
@@ -852,7 +911,9 @@ class Helper
 			$this->log->putLog('Starting pushing Book Orders on Omnipress');
 			//Call omnipress API to push orders into the Omnipress. iterate the loop and push the order to the omnipress
 			foreach ($orders as $order) {
-				$push_order_response = $this->omnipress_obj->pushOrder($order);
+				$shipping_method        = $this->getShippingMethod($order['order_products'][0]['shipping_method']);
+				$order['shipping_info'] = $shipping_method;
+				$push_order_response    = $this->omnipress_obj->pushOrder($order);
 
 				if ($push_order_response['success']) {
 					$this->updateOrderAfterProcessing($order['order']['id']);
