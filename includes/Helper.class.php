@@ -537,7 +537,7 @@ class Helper
 					if ($rows) {
 						foreach ($rows as $index => $row) {
 							$orders[$index]['order']          = $row;
-							$orders[$index]['order_products'] = $this->getOrderProducts($row['order_id']);
+							$orders[$index]['order_products'] = $this->getOrderProducts($row['order_id'], $book_product_codes);
 						}
 						return $orders;
 					} else {
@@ -559,12 +559,13 @@ class Helper
 	 * Get the products by Order Id
 	 *
 	 * @param int $order_id
+	 * @param array $book_product_codes
 	 * @return bool
 	 */
-	public function getOrderProducts($order_id = 0)
+	public function getOrderProducts($order_id = 0, $book_product_codes = array())
 	{
 		try {
-			$sql = " SELECT * FROM order_products WHERE order_id = :order_id ";
+			$sql = " SELECT * FROM order_products WHERE order_id = :order_id AND product_code IS NOT NULL AND product_code != '' AND product_code IN ('" . implode("', '", $book_product_codes) . "')";
 			$stm = $this->_db->prepare($sql);
 
 			$stm->bindParam(":order_id", $order_id);
