@@ -483,7 +483,7 @@ class Helper
 	public function updateOrderAfterProcessing($id = 0)
 	{
 		try {
-			$sql = "UPDATE order SET is_pushed = :is_pushed WHERE id=:id";
+			$sql = "UPDATE `order` SET is_pushed = :is_pushed WHERE id=:id";
 			$stm = $this->_db->prepare($sql);
 
 			$stm->bindParam(":id", $id);
