@@ -920,9 +920,16 @@ class Helper
 					$this->updateOrderAfterProcessing($order['order']['id']);
 					$this->log->putLog("Added/Updated Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
 				} else {
-					$this->is_error = true;
-					$this->log->putLog("Failed to add/update Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
-					$this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
+					$error_message = $push_order_response['error_message'];
+					$search        = "Order with ID '" . $order['order']['order_id'] . "' already exists";
+					if (preg_match("/{$search}/i", $error_message)) {
+						$this->log->putLog("Order exists on Omnipress. So not pushing on Omnipress, but just updating it's status: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+						$this->updateOrderAfterProcessing($order['order']['id']);
+					} else {
+						$this->is_error = true;
+						$this->log->putLog("Failed to add/update Order Product: Order ID=" . $order['order']['order_id'] . " | Product Code=" . $order['order_products'][0]['product_code']);
+						$this->log->putLog("Omnipress API Error Message= " . $push_order_response['error_message']);
+					}
 				}
 			}
 			$this->log->putLog('Completed pushing Book Orders on Omnipress');
